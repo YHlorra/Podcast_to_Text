@@ -1,0 +1,106 @@
+# =============================================================================
+# 🎙️ 播客转文字工具 - Git忽略文件
+# =============================================================================
+# Python相关
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 虚拟环境
+.venv
+venv/
+ENV/
+env/
+venv.bak/
+env.bak/
+
+# 环境变量文件（包含敏感信息）
+.env
+.env.local
+.env.production
+
+# IDE相关
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 模型文件（较大，建议手动下载）
+models/
+*.bin
+*.pt
+*.pth
+
+# 音频文件（用户下载内容）
+downloads/
+*.mp3
+*.mp4
+*.wav
+*.m4a
+*.flac
+
+# 输出文件
+output/
+*.txt
+*.srt
+*.vtt
+
+# 测试文件
+test_files/
+*.test
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# 数据库
+*.db
+*.sqlite3
+
+# 缓存
+.cache/
+*.cache
+
+# 证书文件
+*.pem
+*.key
+*.crt

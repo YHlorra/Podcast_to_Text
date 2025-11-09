@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>播客转文字工具</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>音视频转文字</h1>
+      
+
+      <!-- 链接识别 -->
+      <div class="card">
+        <label for="urlInput">公开链接：</label>
+        <input type="url" id="urlInput" placeholder="粘贴音视频链接">
+        <div class="actions">
+          <button id="startBtn">从链接识别</button>
+        </div>
+        <div id="statusUrl" class="status"></div>
+      </div>
+
+      <!-- 本地文件上传识别 -->
+      <div class="card">
+        <label for="fileInput">本地文件上传：</label>
+        <input type="file" id="fileInput" accept="audio/*,video/*">
+        <div class="actions">
+          <button id="uploadBtn">从文件识别</button>
+        </div>
+        <div id="statusFile" class="status"></div>
+      </div>
+
+      <!-- 结果展示 -->
+      <div id="resultDiv" class="results">
+        <div class="card">
+          <h2>原始识别结果</h2>
+          <pre id="rawTextDiv"></pre>
+        </div>
+        <div class="card">
+          <h2>AI优化后结果</h2>
+          <pre id="cleanTextDiv"></pre>
+        </div>
+        <div class="actions">
+          <button id="downloadRawBtn" disabled>下载原始文本</button>
+          <button id="downloadCleanBtn" disabled>下载优化文本</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const urlInput = document.getElementById('urlInput');
+        const statusUrl = document.getElementById('statusUrl');
+        const rawTextDiv = document.getElementById('rawTextDiv');
+        const cleanTextDiv = document.getElementById('cleanTextDiv');
+        const resultDiv = document.getElementById('resultDiv');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const statusFile = document.getElementById('statusFile');
+        const downloadRawBtn = document.getElementById('downloadRawBtn');
+        const downloadCleanBtn = document.getElementById('downloadCleanBtn');
+        let currentSourceName = 'transcription';
+
+        // 命名辅助
+        function makeSafeName(str) {
+          return (str || 'transcription')
+            .replace(/\s+/g, '_')
+            .replace(/[^a-zA-Z0-9_\-\.]/g, '')
+            .slice(0, 100) || 'transcription';
+        }
+        function timestamp() {
+          const d = new Date();
+          const pad = n => String(n).padStart(2, '0');
+          return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+        }
+        function deriveNameFromUrl(url) {
+          try {
+            const u = new URL(url);
+            const host = (u.hostname || 'link').replace(/^www\./, '');
+            let id = u.searchParams.get('v') || '';
+            if (!id) {
+              const segs = (u.pathname || '').split('/').filter(Boolean);
+              if (segs.length) id = segs[segs.length - 1];
+            }
+            const base = id ? `${host}_${id}` : host;
+            return makeSafeName(base);
+          } catch {
+            return 'link';
+          }
+        }
+        function deriveNameFromFile(file) {
+          const name = (file && file.name) || 'upload';
+          const base = name.replace(/\.[^/.]+$/, '');
+          return makeSafeName(base);
+        }
+
+        // 链接识别（SSE）
+        startBtn.addEventListener('click', startTranscriptionFromUrl);
+
+        function startTranscriptionFromUrl() {
+          startBtn.disabled = true;
+          statusUrl.textContent = '准备开始…';
+          resultDiv.style.display = 'none';
+          rawTextDiv.textContent = '';
+          cleanTextDiv.textContent = '';
+          downloadRawBtn.disabled = true;
+          downloadCleanBtn.disabled = true;
+
+          const url = urlInput.value.trim();
+          if (!url) {
+            statusUrl.textContent = '错误：请输入链接。';
+            statusUrl.style.color = 'red';
+            startBtn.disabled = false;
+            return;
+          }
+          currentSourceName = deriveNameFromUrl(url);
+
+          const eventSource = new EventSource(`/api/transcribe?url=${encodeURIComponent(url)}`);
+
+          eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.ok === false) {
+              statusUrl.textContent = `错误：${data.error}`;
+              statusUrl.style.color = 'red';
+              eventSource.close();
+              startBtn.disabled = false;
+            } else if (data.ok === true) {
+              statusUrl.textContent = `处理完成，耗时 ${data.elapsed_sec} 秒。`;
+              statusUrl.style.color = 'green';
+              rawTextDiv.textContent = data.raw_text;
+              cleanTextDiv.textContent = data.clean_text;
+              currentSourceName = makeSafeName(data.title || currentSourceName);
+              resultDiv.style.display = 'grid';
+              downloadRawBtn.disabled = false;
+              downloadCleanBtn.disabled = false;
+              eventSource.close();
+              startBtn.disabled = false;
+            } else {
+              statusUrl.textContent = data.status;
+              statusUrl.style.color = '#9ca3af';
+            }
+          };
+
+          eventSource.onerror = function(error) {
+            console.error('EventSource failed:', error);
+            statusUrl.textContent = '连接错误，请检查网络或服务状态。';
+            statusUrl.style.color = 'red';
+            eventSource.close();
+            startBtn.disabled = false;
+          };
+        }
+
+        // 本地文件上传识别
+        uploadBtn && uploadBtn.addEventListener('click', async () => {
+          const file = fileInput && fileInput.files && fileInput.files[0];
+          if (!file) {
+            statusFile.textContent = '请先选择文件。';
+            statusFile.style.color = 'red';
+            return;
+          }
+          currentSourceName = deriveNameFromFile(file);
+          uploadBtn.disabled = true;
+          statusFile.textContent = '正在上传并识别…';
+          statusFile.style.color = '#9ca3af';
+          try {
+            const form = new FormData();
+            form.append('file', file);
+            // 清空旧结果
+            resultDiv.style.display = 'none';
+            rawTextDiv.textContent = '';
+            cleanTextDiv.textContent = '';
+            downloadRawBtn.disabled = true;
+            downloadCleanBtn.disabled = true;
+
+            const resp = await fetch('/api/transcribe_file', { method: 'POST', body: form });
+            const data = await resp.json();
+            if (!data.ok) {
+              statusFile.textContent = `错误：${data.error || '识别失败'}`;
+              statusFile.style.color = 'red';
+              return;
+            }
+            statusFile.textContent = `处理完成，耗时 ${data.elapsed_sec} 秒。`;
+            statusFile.style.color = 'green';
+            rawTextDiv.textContent = data.raw_text || '';
+            cleanTextDiv.textContent = data.clean_text || '';
+            currentSourceName = makeSafeName(data.title || currentSourceName);
+            resultDiv.style.display = 'grid';
+            downloadRawBtn.disabled = false;
+            downloadCleanBtn.disabled = false;
+          } catch (e) {
+            console.error(e);
+            statusFile.textContent = '上传或识别失败，请重试。';
+            statusFile.style.color = 'red';
+          } finally {
+            uploadBtn.disabled = false;
+          }
+        });
+
+        // 文本下载
+        function downloadText(filename, text) {
+          try {
+            const blob = new Blob([text || ''], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          } catch (e) {
+            console.error(e);
+            alert('下载失败，请稍后重试');
+          }
+        }
+        downloadRawBtn.addEventListener('click', () => {
+          const base = makeSafeName(currentSourceName || 'transcription');
+          downloadText(`${base}_raw.txt`, rawTextDiv.textContent);
+        });
+        downloadCleanBtn.addEventListener('click', () => {
+          const base = makeSafeName(currentSourceName || 'transcription');
+          downloadText(`${base}_clean.txt`, cleanTextDiv.textContent);
+        });
+    </script>
+  </body>
+</html>
