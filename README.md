@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Flask](https://img.shields.io/badge/Flask-3.1+-orange.svg)](https://flask.palletsprojects.com/)
 
-一个简单易用的音频转文字工具，支持多种语音识别方案：
+一个简单易用的音频转文字工具，支持多种语音识别方案。
 
 ## 🖥️ 应用界面预览
 
