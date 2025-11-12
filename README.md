@@ -8,7 +8,7 @@
 
 ## 🖥️ 应用界面预览
 
-![应用界面](photo/app_interface_preview.png)
+![应用界面](app_interface_preview.png)
 
 **主要功能区域：**
 - **顶部输入区**：支持输入公开链接（YouTube、B站等）或上传本地音视频文件
